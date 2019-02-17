@@ -330,25 +330,23 @@ namespace PQDashboard.Controllers
             string emailServiceName = GetEmailServiceName();
             string recipient, subject, body;
 
-            // if phone changed force reconfirmation
-            if (userAccount.Phone != formData.phone + "@" + formData.carrier)
+            string phone = formData.phone;
+            string carrier = formData.carrier;
+
+            if (!string.IsNullOrEmpty(phone) && !string.IsNullOrEmpty(carrier) && carrier != "0")
             {
-                userAccount.Phone = formData.phone;
+                phone = new string(formData.phone.Where(char.IsDigit));
+                userAccount.Phone = $"{phone}@{carrier}";
                 userAccount.PhoneConfirmed = false;
 
-                if (!string.IsNullOrEmpty(formData.phone))
-                {
-                    userAccount.Phone += $"@{formData.carrier}";
+                // generate code for sms confirmation
+                string code = Random.Int32Between(0, 999999).ToString("D6");
+                s_memoryCache.Set("sms" + userAccount.ID.ToString(), code, new CacheItemPolicy { SlidingExpiration = TimeSpan.FromDays(1) });
 
-                    // generate code for sms confirmation
-                    string code = Random.Int32Between(0, 999999).ToString("D6");
-                    s_memoryCache.Set("sms" + userAccount.ID.ToString(), code, new CacheItemPolicy { SlidingExpiration = TimeSpan.FromDays(1) });
-
-                    recipient = userAccount.Phone;
-                    subject = $"{emailServiceName} requires you to confirm your SMS number.";
-                    body = $"From your workstation, input {code} at {url}/email/verify/sms";
-                    SendEmail(recipient, subject, body);
-                }
+                recipient = userAccount.Phone;
+                subject = $"{emailServiceName} requires you to confirm your SMS number.";
+                body = $"From your workstation, input {code} at {url}/email/verify/sms";
+                SendEmail(recipient, subject, body);
             }
 
             userAccountTable.UpdateRecord(userAccount);
